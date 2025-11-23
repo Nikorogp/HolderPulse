@@ -313,4 +313,111 @@
     })
 )
 
+;; Advanced behavioral analysis function with comprehensive pattern detection
+;; This function performs deep analysis of holder behavior over a specified time window
+;; and generates detailed insights including velocity metrics, pattern recognition,
+;; and predictive risk assessment
+(define-public (analyze-holder-behavior-advanced 
+                (holder principal) 
+                (time-window uint)
+                (include-predictions bool))
+    (begin
+        (asserts! (is-eq tx-sender contract-owner) err-owner-only)
+        
+        (let
+            (
+                (profile (unwrap! (map-get? holder-profiles holder) err-not-found))
+                (flags (unwrap! (map-get? behavior-flags holder) err-not-found))
+                (current-day (/ block-height u144))
+                (window-start (if (> current-day time-window) (- current-day time-window) u0))
+                
+                ;; Calculate velocity metrics
+                (transfer-velocity (/ (get total-transfers profile) 
+                    (max u1 (- (get last-activity profile) (get first-activity profile)))))
+                (volume-velocity (/ (get total-volume profile)
+                    (max u1 (- (get last-activity profile) (get first-activity profile)))))
+                
+                ;; Behavioral pattern scores
+                (consistency-score (if (> (get average-hold-time profile) u0)
+                    (/ (* (get average-hold-time profile) u100) (var-get min-hold-time-for-loyalty))
+                    u0))
+                (activity-intensity (/ (* (get total-transfers profile) u100) 
+                    (max u1 (- block-height (get first-activity profile)))))
+                
+                ;; Risk assessment components
+                (velocity-risk (if (> transfer-velocity u10) u20 u0))
+                (volume-risk (if (> (get total-volume profile) (var-get whale-threshold)) u25 u0))
+                (pattern-risk (if (get suspicious-pattern flags) u30 u0))
+                (composite-risk (+ velocity-risk (+ volume-risk pattern-risk)))
+                
+                ;; Loyalty and trust indicators
+                (trust-score (- u100 (min composite-risk u100)))
+                (holder-tier (if (>= (get loyalty-score profile) u80) "platinum"
+                             (if (>= (get loyalty-score profile) u60) "gold"
+                             (if (>= (get loyalty-score profile) u40) "silver" "bronze"))))
+                
+                ;; Predictive indicators (if enabled)
+                (churn-probability (if include-predictions
+                    (if (> (- block-height (get last-activity profile)) (/ (var-get dormancy-period) u2))
+                        u75 u25)
+                    u0))
+                (growth-potential (if include-predictions
+                    (if (and (< (get total-transfers profile) u20) 
+                             (> (get loyalty-score profile) u50))
+                        u80 u40)
+                    u0))
+            )
+            
+            ;; Return comprehensive analysis report
+            (ok {
+                holder: holder,
+                analysis-timestamp: block-height,
+                time-window-analyzed: time-window,
+                profile-metrics: {
+                    total-transfers: (get total-transfers profile),
+                    total-volume: (get total-volume profile),
+                    account-age: (- block-height (get first-activity profile)),
+                    days-since-last-activity: (/ (- block-height (get last-activity profile)) u144)
+                },
+                velocity-metrics: {
+                    transfer-velocity: transfer-velocity,
+                    volume-velocity: volume-velocity,
+                    activity-intensity: activity-intensity
+                },
+                risk-assessment: {
+                    current-risk-score: (get risk-score profile),
+                    composite-risk: composite-risk,
+                    velocity-risk: velocity-risk,
+                    volume-risk: volume-risk,
+                    pattern-risk: pattern-risk,
+                    is-flagged: (get is-flagged profile)
+                },
+                loyalty-metrics: {
+                    loyalty-score: (get loyalty-score profile),
+                    trust-score: trust-score,
+                    consistency-score: consistency-score,
+                    holder-tier: holder-tier,
+                    average-hold-time: (get average-hold-time profile)
+                },
+                behavior-patterns: {
+                    rapid-trading: (get rapid-trading flags),
+                    large-volume: (get large-volume flags),
+                    suspicious-pattern: (get suspicious-pattern flags),
+                    whale-activity: (get whale-activity flags),
+                    dormant-reactivation: (get dormant-reactivation flags)
+                },
+                predictions: (if include-predictions
+                    (some {
+                        churn-probability: churn-probability,
+                        growth-potential: growth-potential,
+                        recommended-action: (if (> composite-risk risk-high) "monitor-closely"
+                                           (if (> (get loyalty-score profile) u70) "reward-loyalty"
+                                           "standard-monitoring"))
+                    })
+                    none)
+            })
+        )
+    )
+)
+
 
